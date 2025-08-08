@@ -205,7 +205,6 @@
       .line-london-overground { background-color: #EE7C0E; }
       .line-trams { background-color: #84B817; }
     </style>
-  <link rel="stylesheet" href="/index.css">
 </head>
   <body>
     <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
@@ -219,10 +218,12 @@
     </main>
 
     <footer>
-      <div class="footer-options">
-        <input type="checkbox" id="test-location-checkbox" name="test-location" role="switch">
-        <label for="test-location-checkbox">Use test location</label>
-      </div>
+      <details>
+        <summary>API Settings</summary>
+        <label for="tfl-api-key">TfL API Key</label>
+        <input type="password" id="tfl-api-key" name="tfl-api-key" placeholder="Enter your TfL API key">
+        <small>Your key is saved in your browser's local storage.</small>
+      </details>
     </footer>
 
     <script type="module" src="index.js"></script>

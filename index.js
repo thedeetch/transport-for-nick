@@ -3,7 +3,7 @@ import { fetchNearbyStops, fetchArrivalsForStop } from './services/tflService.js
 
 // --- DOM Elements ---
 const contentContainer = document.getElementById('content-container');
-const testLocationCheckbox = document.getElementById('test-location-checkbox');
+const tflApiKeyInput = document.getElementById('tfl-api-key');
 
 // --- State ---
 const state = {
@@ -14,6 +14,21 @@ const state = {
 };
 
 // --- Helper Functions ---
+const TFL_API_KEY_STORAGE_KEY = 'tfl-api-key';
+
+const getApiKey = () => {
+    return tflApiKeyInput.value;
+};
+
+const saveApiKey = () => {
+    localStorage.setItem(TFL_API_KEY_STORAGE_KEY, tflApiKeyInput.value);
+};
+
+const loadApiKey = () => {
+    const savedKey = localStorage.getItem(TFL_API_KEY_STORAGE_KEY);
+    if (savedKey) tflApiKeyInput.value = savedKey;
+};
+
 const slugify = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/ & /g, '-and-');
 
 // --- Render Functions (Pico.css Compliant HTML) ---
@@ -164,15 +179,6 @@ const render = () => {
 
 const getLocation = () => {
   return new Promise((resolve, reject) => {
-    // Prioritize checkbox for test location
-    if (testLocationCheckbox.checked) {
-      console.log('Using test location from checkbox.');
-      return resolve({
-        latitude: 51.5181627156178, 
-        longitude: -0.1786709008541014
-      });
-    }
-
     const urlParams = new URLSearchParams(window.location.search);
     const lat = urlParams.get('lat');
     const lon = urlParams.get('lon');
@@ -200,6 +206,16 @@ const fetchTransportData = async () => {
   }
   render();
 
+  const apiKey = getApiKey();
+  if (!apiKey) {
+      state.error = 'TfL API Key is missing. Please add it in the API Settings below.';
+      state.isRefreshing = false;
+      // Clear existing results if key is removed
+      if (state.stopsWithArrivals.length > 0) state.stopsWithArrivals = [];
+      render();
+      return; // Stop execution
+  }
+
   try {
     state.loadingMessage = 'Getting your location...';
     if (state.stopsWithArrivals.length === 0) render();
@@ -209,7 +225,7 @@ const fetchTransportData = async () => {
     state.loadingMessage = 'Finding nearby bus stops & Tube stations...';
     if (state.stopsWithArrivals.length === 0) render();
 
-    const nearbyStops = await fetchNearbyStops(location.latitude, location.longitude);
+    const nearbyStops = await fetchNearbyStops(location.latitude, location.longitude, apiKey);
 
     if (nearbyStops.length === 0) {
       if (state.stopsWithArrivals.length === 0) {
@@ -222,7 +238,7 @@ const fetchTransportData = async () => {
       const stopsWithData = await Promise.all(
         nearbyStops.map(async (stop) => {
           try {
-            const arrivals = await fetchArrivalsForStop(stop.id);
+            const arrivals = await fetchArrivalsForStop(stop.id, apiKey);
             return { ...stop, arrivals };
           } catch (e) {
             console.warn(`Could not fetch arrivals for stop ${stop.id}`, e);
@@ -245,7 +261,12 @@ const fetchTransportData = async () => {
 
 // --- Initialization ---
 const init = () => {
-  testLocationCheckbox.addEventListener('change', fetchTransportData);
+  loadApiKey();
+
+  tflApiKeyInput.addEventListener('change', () => {
+    saveApiKey();
+    fetchTransportData();
+  });
   fetchTransportData(); // Initial fetch
   setInterval(fetchTransportData, 30000); // Auto-refresh every 30 seconds
 };
