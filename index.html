@@ -1,0 +1,230 @@
+
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TfL Live Bus & Tube Finder</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+    />
+    <style>
+      :root {
+        --bus-pill-bg: #dc2626; /* red-600 */
+        --warning-color: #ffc107; /* Amber */
+      }
+      
+      /* Main content padding */
+      main {
+          padding-top: 1rem;
+          padding-bottom: 2rem;
+      }
+      
+      /* Footer styling */
+      footer {
+        font-size: 0.75rem;
+        padding: 0.75rem;
+        text-align: center;
+        border-top: var(--pico-border-width) solid var(--pico-muted-border-color);
+        margin-top: 2rem;
+      }
+      
+      .footer-options {
+        margin-top: 1rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      /* Stop Card styling */
+      .stop-card {
+        margin-bottom: 1rem;
+      }
+      .stop-card > header { /* Use > to avoid selecting headers in nested articles if they are used */
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 2px solid var(--pico-muted-border-color);
+        padding: 0.5rem; /* Consistent padding */
+      }
+      .stop-card hgroup {
+        margin-bottom: 0;
+      }
+      .stop-letter-badge {
+        font-size: 0.8rem;
+        background-color: var(--bus-pill-bg);
+        color: white;
+        margin-left: 0.5rem;
+        font-weight: bold;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        vertical-align: middle;
+        border: none;
+        width: 1.8rem;
+        height: 1.8rem;
+        border-radius: 50%;
+      }
+      .direction-badge {
+        font-size: 0.7rem;
+        background-color: var(--pico-muted-border-color);
+        color: var(--pico-muted-color);
+        padding: 0.15rem 0.4rem;
+        border-radius: var(--pico-border-radius);
+        margin-left: 0.5rem;
+        font-weight: bold;
+        display: inline-block;
+        vertical-align: middle;
+      }
+      
+      /* Disruption Icon */
+      .warning-icon {
+        width: 1.1em;
+        height: 1.1em;
+        fill: var(--warning-color);
+        margin-left: 0.5rem;
+        vertical-align: text-bottom;
+        flex-shrink: 0;
+      }
+
+      /* Consistent arrivals list styling */
+      .arrivals-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      /* Arrival item styling */
+      .arrival-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.4rem 0.5rem; /* Reduced vertical padding */
+      }
+       .arrival-item:not(:last-child) {
+        border-bottom: 1px solid var(--pico-muted-border-color);
+      }
+      /* Remove bottom border for last item inside a destination group */
+      .tube-destination-group .arrivals-list .arrival-item:last-child {
+        border-bottom: none;
+      }
+
+      .arrival-details {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        overflow: hidden; /* For truncation */
+        flex-grow: 1;
+      }
+      .truncate {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .bus-route {
+        background-color: var(--bus-pill-bg);
+        color: white;
+        padding: 0.15rem 0.5rem;
+        border-radius: var(--pico-border-radius);
+        font-weight: bold;
+        font-size: 0.8em;
+        text-align: center;
+        min-width: 3rem;
+        flex-shrink: 0;
+      }
+      .arrival-time {
+        font-weight: bold;
+        font-size: 1rem;
+        flex-shrink: 0;
+        margin-left: 0.75rem;
+      }
+
+      /* Error display styling */
+      .error-display {
+        border-color: var(--pico-color-red-500);
+        background-color: rgba(255, 0, 0, 0.1);
+      }
+      .error-display strong {
+        color: var(--pico-color-red-500);
+      }
+
+      /* No buses/arrivals message */
+      .no-arrivals-msg {
+        text-align: center;
+        padding: 0.5rem; /* Reduced padding */
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--pico-muted-color);
+      }
+      .no-arrivals-msg p {
+        margin: 0;
+      }
+      
+      /* Tube Line Pill */
+      .line-pill {
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: var(--pico-border-radius);
+        font-weight: bold;
+        font-size: 0.9em;
+        text-align: center;
+        flex-shrink: 0;
+      }
+      
+      /* Tube Destination Grouping */
+      .tube-destination-group {
+        padding-top: 0; /* Removed padding */
+      }
+      .tube-destination-group:not(:first-child) {
+        border-top: 1px dashed var(--pico-muted-border-color);
+      }
+      .tube-destination-header {
+        font-size: 0.9em;
+        font-weight: bold;
+        background-color: var(--pico-muted-background-color);
+        padding: 0.25rem 0.5rem;
+        margin: 0;
+      }
+
+      /* Official TfL Line Colours */
+      .line-bakerloo { background-color: #B36305; }
+      .line-central { background-color: #E32017; }
+      .line-circle { background-color: #FFD300; color: black; }
+      .line-district { background-color: #00782A; }
+      .line-hammersmith-city, .line-hammersmith-and-city { background-color: #F3A9BB; color: black; }
+      .line-jubilee { background-color: #A0A5A9; }
+      .line-metropolitan { background-color: #9B0056; }
+      .line-northern { background-color: #000000; border: 1px solid white; }
+      .line-piccadilly { background-color: #003688; }
+      .line-victoria { background-color: #0098D4; }
+      .line-waterloo-city, .line-waterloo-and-city { background-color: #95CDBA; color: black; }
+      .line-elizabeth-line { background-color: #6950a1; }
+      .line-dlr { background-color: #00A4A7; }
+      .line-london-overground { background-color: #EE7C0E; }
+      .line-trams { background-color: #84B817; }
+    </style>
+  <link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+      <symbol id="icon-warning" viewBox="0 0 24 24">
+        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+      </symbol>
+    </svg>
+
+    <main id="content-container" class="container">
+      <!-- Dynamic content will be injected here -->
+    </main>
+
+    <footer>
+      <div class="footer-options">
+        <input type="checkbox" id="test-location-checkbox" name="test-location" role="switch">
+        <label for="test-location-checkbox">Use test location</label>
+      </div>
+    </footer>
+
+    <script type="module" src="index.js"></script>
+</body>
+</html>
