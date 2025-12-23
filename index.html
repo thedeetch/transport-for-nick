@@ -285,6 +285,11 @@
       /* Align button to the right */
     }
 
+    header nav ul li {
+      padding: 0;
+      margin-left: 0.5rem;
+    }
+
     header nav {
       width: auto;
       /* Allow nav to shrink */
@@ -294,7 +299,8 @@
       margin-bottom: 0;
     }
 
-    #refresh-button {
+    #refresh-button,
+    #location-button {
       padding: var(--pico-nav-element-spacing-vertical) 0.5rem;
       border: none;
       background: transparent;
@@ -305,7 +311,8 @@
       width: auto;
     }
 
-    #refresh-button:focus {
+    #refresh-button:focus,
+    #location-button:focus {
       box-shadow: none;
     }
 
@@ -329,22 +336,31 @@
 
 <body>
   <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
-    <svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
-      <symbol id="icon-warning" viewBox="0 0 24 24">
-        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
-      </symbol>
-      <symbol id="icon-refresh" viewBox="0 0 24 24">
-        <path
-          d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
-      </symbol>
-    </svg>
+    <symbol id="icon-warning" viewBox="0 0 24 24">
+      <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
+    </symbol>
+    <symbol id="icon-refresh" viewBox="0 0 24 24">
+      <path
+        d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+    </symbol>
+    <symbol id="icon-map-pin" viewBox="0 0 24 24">
+      <path
+        d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+    </symbol>
   </svg>
 
   <header class="container">
     <nav>
       <ul>
         <li>
-          <button id="refresh-button" aria-label="Refresh">
+          <button id="location-button" aria-label="Refresh Location">
+            <svg class="refresh-icon">
+              <use href="#icon-map-pin"></use>
+            </svg>
+          </button>
+        </li>
+        <li>
+          <button id="refresh-button" aria-label="Refresh Data">
             <svg class="refresh-icon">
               <use href="#icon-refresh"></use>
             </svg>

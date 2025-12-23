@@ -4,15 +4,18 @@ import { fetchNearbyStops, fetchArrivalsForStop } from './services/tflService.js
 // --- DOM Elements ---
 const contentContainer = document.getElementById('content-container');
 const tflApiKeyInput = document.getElementById('tfl-api-key');
-const refreshButton = document.getElementById('refresh-button');
+let refreshButton;
+let locationButton;
 
-// --- State ---
 const state = {
   stopsWithArrivals: [],
   isRefreshing: true,
   loadingMessage: 'Waiting for location permission...',
   error: null,
 };
+
+// Removed early check
+
 
 // --- Helper Functions ---
 const TFL_API_KEY_STORAGE_KEY = 'tfl-api-key';
@@ -156,7 +159,7 @@ const render = () => {
   if (state.stopsWithArrivals.length === 0) {
     if (state.isRefreshing) {
       // Initial load spinner is okay to keep if we are empty
-      html = `<article aria-busy="true" style="text-align: center; background: transparent; border: none; box-shadow: none; margin-top: 5rem;">Loading...</article>`;
+      html = `<article aria-busy="true" style="text-align: center; background: transparent; border: none; box-shadow: none; margin-top: 5rem;">${state.loadingMessage || 'Loading...'}</article>`;
     } else if (state.error) {
       html = createErrorDisplayHTML(state.error);
     } else {
@@ -167,6 +170,7 @@ const render = () => {
     if (state.error) {
       html += createErrorDisplayHTML(state.error);
     }
+
     html += createStopCardsHTML(state.stopsWithArrivals);
   }
 
@@ -174,19 +178,33 @@ const render = () => {
 
   // Update button state
   // Update button state
-  const refreshIcon = refreshButton.querySelector('.refresh-icon');
-  if (state.isRefreshing) {
-    if (refreshIcon) refreshIcon.classList.add('spinning');
-    refreshButton.setAttribute('disabled', 'true');
-  } else {
-    if (refreshIcon) refreshIcon.classList.remove('spinning');
-    refreshButton.removeAttribute('disabled');
+  // Update button state
+  if (refreshButton) {
+    const refreshIcon = refreshButton.querySelector('.refresh-icon');
+    if (state.isRefreshing) {
+      if (refreshIcon) refreshIcon.classList.add('spinning');
+      refreshButton.setAttribute('disabled', 'true');
+    } else {
+      if (refreshIcon) refreshIcon.classList.remove('spinning');
+      refreshButton.removeAttribute('disabled');
+    }
+  }
+
+  if (locationButton) {
+    const locationIcon = locationButton.querySelector('.refresh-icon');
+    if (state.isRefreshing) {
+      if (locationIcon) locationIcon.classList.add('spinning');
+      locationButton.setAttribute('disabled', 'true');
+    } else {
+      if (locationIcon) locationIcon.classList.remove('spinning');
+      locationButton.removeAttribute('disabled');
+    }
   }
 };
 
 // --- Data Fetching and Logic ---
 
-const getLocation = () => {
+const getLocation = (options = { maximumAge: 0 }) => {
   return new Promise((resolve, reject) => {
     const urlParams = new URLSearchParams(window.location.search);
     const lat = urlParams.get('lat');
@@ -203,18 +221,12 @@ const getLocation = () => {
     navigator.geolocation.getCurrentPosition(
       (position) => resolve(position.coords),
       (geoError) => reject(new Error(`Error getting location: ${geoError.message}. Please enable location services.`)),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: options.maximumAge }
     );
   });
 };
 
-const fetchTransportData = async () => {
-  state.isRefreshing = true;
-  if (state.stopsWithArrivals.length > 0) {
-    state.error = null;
-  }
-  render();
-
+const getApiKeyOrShowError = () => {
   const apiKey = getApiKey();
   if (!apiKey) {
     state.error = 'TfL API Key is missing. Please add it in the API Settings below.';
@@ -222,14 +234,27 @@ const fetchTransportData = async () => {
     // Clear existing results if key is removed
     if (state.stopsWithArrivals.length > 0) state.stopsWithArrivals = [];
     render();
-    return; // Stop execution
+    return null;
   }
+  return apiKey;
+};
+
+const refreshLocation = async () => {
+  state.isRefreshing = true;
+  state.error = null;
+  render();
+
+
+
+  const apiKey = getApiKeyOrShowError();
+  if (!apiKey) return;
 
   try {
     state.loadingMessage = 'Getting your location...';
     if (state.stopsWithArrivals.length === 0) render();
 
-    const location = await getLocation();
+    // specific button press means we want fresh location, do not use cache
+    const location = await getLocation({ maximumAge: 0 });
 
     state.loadingMessage = 'Finding nearby bus stops & Tube stations...';
     if (state.stopsWithArrivals.length === 0) render();
@@ -237,11 +262,9 @@ const fetchTransportData = async () => {
     const nearbyStops = await fetchNearbyStops(location.latitude, location.longitude, apiKey);
 
     if (nearbyStops.length === 0) {
-      if (state.stopsWithArrivals.length === 0) {
-        state.stopsWithArrivals = [];
-      }
+      state.stopsWithArrivals = [];
     } else {
-      state.loadingMessage = 'Fetching live data...';
+      state.loadingMessage = null; // Clear message to prevent flashing
       if (state.stopsWithArrivals.length === 0) render();
 
       const stopsWithData = await Promise.all(
@@ -256,7 +279,6 @@ const fetchTransportData = async () => {
         })
       );
 
-      state.error = null;
       state.stopsWithArrivals = stopsWithData;
     }
   } catch (err) {
@@ -268,21 +290,86 @@ const fetchTransportData = async () => {
   }
 };
 
+const refreshDataOnly = async () => {
+  if (state.stopsWithArrivals.length === 0) {
+    // If no stops, we can't refresh data only. Fallback to full refresh or do nothing?
+    // Let's do a full refresh to be helpful.
+    return refreshLocation();
+  }
+
+  state.isRefreshing = true;
+  state.error = null;
+  state.loadingMessage = null; // Ensure no stale message is shown
+  render(); // Will show spinner on refresh button
+
+  const apiKey = getApiKeyOrShowError();
+  if (!apiKey) return;
+
+  try {
+    const stopsWithData = await Promise.all(
+      state.stopsWithArrivals.map(async (stop) => {
+        try {
+          const arrivals = await fetchArrivalsForStop(stop.id, apiKey);
+          return { ...stop, arrivals };
+        } catch (e) {
+          console.warn(`Could not fetch arrivals for stop ${stop.id}`, e);
+          return { ...stop, arrivals: [] };
+        }
+      })
+    );
+    state.stopsWithArrivals = stopsWithData;
+
+  } catch (err) {
+    console.error(err);
+    state.error = err instanceof Error ? err.message : 'An unknown error occurred.';
+  } finally {
+    state.isRefreshing = false;
+    render();
+  }
+};
+
+// Backwards compatibility/Initial load
+const fetchTransportData = refreshLocation;
+
 // --- Initialization ---
 const init = () => {
+  // Late binding of elements to ensure DOM is ready
+  refreshButton = document.getElementById('refresh-button');
+  locationButton = document.getElementById('location-button');
+
+  if (!refreshButton) console.error('CRITICAL: refreshButton not found!');
+  if (!locationButton) console.error('CRITICAL: locationButton not found!');
+
   loadApiKey();
 
   tflApiKeyInput.addEventListener('change', () => {
     saveApiKey();
-    fetchTransportData();
+    refreshLocation();
   });
 
-  refreshButton.addEventListener('click', () => {
-    fetchTransportData();
-  });
+  if (refreshButton) {
+    refreshButton.addEventListener('click', () => {
+      refreshDataOnly();
+    });
+  }
+
+  if (locationButton) {
+    locationButton.addEventListener('click', () => {
+      refreshLocation();
+    });
+  }
+
 
   fetchTransportData(); // Initial fetch
-  setInterval(fetchTransportData, 30000); // Auto-refresh every 30 seconds
+  setInterval(refreshDataOnly, 30000); // Auto-refresh data every 30 seconds (don't constantly poll location)
 };
 
-init();
+const startApp = () => {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+};
+
+startApp();
