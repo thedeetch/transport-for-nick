@@ -4,6 +4,7 @@ import { fetchNearbyStops, fetchArrivalsForStop } from './services/tflService.js
 // --- DOM Elements ---
 const contentContainer = document.getElementById('content-container');
 const tflApiKeyInput = document.getElementById('tfl-api-key');
+const refreshButton = document.getElementById('refresh-button');
 
 // --- State ---
 const state = {
@@ -17,27 +18,22 @@ const state = {
 const TFL_API_KEY_STORAGE_KEY = 'tfl-api-key';
 
 const getApiKey = () => {
-    return tflApiKeyInput.value;
+  return tflApiKeyInput.value;
 };
 
 const saveApiKey = () => {
-    localStorage.setItem(TFL_API_KEY_STORAGE_KEY, tflApiKeyInput.value);
+  localStorage.setItem(TFL_API_KEY_STORAGE_KEY, tflApiKeyInput.value);
 };
 
 const loadApiKey = () => {
-    const savedKey = localStorage.getItem(TFL_API_KEY_STORAGE_KEY);
-    if (savedKey) tflApiKeyInput.value = savedKey;
+  const savedKey = localStorage.getItem(TFL_API_KEY_STORAGE_KEY);
+  if (savedKey) tflApiKeyInput.value = savedKey;
 };
 
 const slugify = (text) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/ & /g, '-and-');
 
 // --- Render Functions (Pico.css Compliant HTML) ---
 
-const createLoadingSpinnerHTML = (message) => `
-    <article aria-busy="true" style="text-align: center; background: transparent; border: none; box-shadow: none; margin-top: 5rem;">
-        ${message}
-    </article>
-`;
 
 const createErrorDisplayHTML = (message) => `
     <article class="error-display" style="text-align: center;">
@@ -81,7 +77,7 @@ const createStopCardsHTML = (stops) => {
                 const minutesAway = Math.floor(arrival.timeToStation / 60);
                 const towardsText = arrival.towards ? arrival.towards : 'Unknown Destination';
                 return `
-                                <li class="arrival-item">
+  < li class="arrival-item" >
                                     <div class="arrival-details">
                                         <span class="line-pill line-${slugify(arrival.lineId)}">${arrival.lineName}</span>
                                         <span class="truncate" title="${towardsText}">${towardsText}</span>
@@ -89,8 +85,8 @@ const createStopCardsHTML = (stops) => {
                                     <span class="arrival-time">
                                         ${minutesAway > 0 ? `${minutesAway} min` : 'Due'}
                                     </span>
-                                </li>
-                            `;
+                                </li >
+  `;
               }).join('');
 
             return `
@@ -159,13 +155,15 @@ const render = () => {
 
   if (state.stopsWithArrivals.length === 0) {
     if (state.isRefreshing) {
-      html = createLoadingSpinnerHTML(state.loadingMessage);
+      // Initial load spinner is okay to keep if we are empty
+      html = `<article aria-busy="true" style="text-align: center; background: transparent; border: none; box-shadow: none; margin-top: 5rem;">Loading...</article>`;
     } else if (state.error) {
       html = createErrorDisplayHTML(state.error);
     } else {
       html = `<article style="text-align: center;">Could not find any bus stops or Tube stations nearby.</article>`;
     }
   } else {
+    // When refreshing with data, the button handles the UI state
     if (state.error) {
       html += createErrorDisplayHTML(state.error);
     }
@@ -173,6 +171,17 @@ const render = () => {
   }
 
   contentContainer.innerHTML = html;
+
+  // Update button state
+  // Update button state
+  const refreshIcon = refreshButton.querySelector('.refresh-icon');
+  if (state.isRefreshing) {
+    if (refreshIcon) refreshIcon.classList.add('spinning');
+    refreshButton.setAttribute('disabled', 'true');
+  } else {
+    if (refreshIcon) refreshIcon.classList.remove('spinning');
+    refreshButton.removeAttribute('disabled');
+  }
 };
 
 // --- Data Fetching and Logic ---
@@ -184,7 +193,7 @@ const getLocation = () => {
     const lon = urlParams.get('lon');
 
     if (lat && lon) {
-      console.log(`Using test location from URL: lat=${lat}, lon=${lon}`);
+      console.log(`Using test location from URL: lat = ${lat}, lon = ${lon} `);
       return resolve({ latitude: parseFloat(lat), longitude: parseFloat(lon) });
     }
 
@@ -208,12 +217,12 @@ const fetchTransportData = async () => {
 
   const apiKey = getApiKey();
   if (!apiKey) {
-      state.error = 'TfL API Key is missing. Please add it in the API Settings below.';
-      state.isRefreshing = false;
-      // Clear existing results if key is removed
-      if (state.stopsWithArrivals.length > 0) state.stopsWithArrivals = [];
-      render();
-      return; // Stop execution
+    state.error = 'TfL API Key is missing. Please add it in the API Settings below.';
+    state.isRefreshing = false;
+    // Clear existing results if key is removed
+    if (state.stopsWithArrivals.length > 0) state.stopsWithArrivals = [];
+    render();
+    return; // Stop execution
   }
 
   try {
@@ -267,6 +276,11 @@ const init = () => {
     saveApiKey();
     fetchTransportData();
   });
+
+  refreshButton.addEventListener('click', () => {
+    fetchTransportData();
+  });
+
   fetchTransportData(); // Initial fetch
   setInterval(fetchTransportData, 30000); // Auto-refresh every 30 seconds
 };
